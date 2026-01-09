@@ -89,12 +89,19 @@ async function queryStats(env, bundleId, envFilter) {
     return []; // Return empty, show "no data yet"
   }
 
-  // Transform response: {data: [[date, count], ...]} → [{date, devices}, ...]
+  // Transform response - handle both array and object formats
   if (result.data && result.data.length > 0) {
-    return result.data.map(row => ({
-      date: row[0],
-      devices: row[1],
-    }));
+    return result.data.map(row => {
+      // Array format: [date, count]
+      if (Array.isArray(row)) {
+        return { date: row[0], devices: row[1] };
+      }
+      // Object format: {date: "...", devices: N}
+      return {
+        date: row.date || row[0],
+        devices: parseInt(row.devices || row[1] || 0, 10)
+      };
+    });
   }
 
   return [];
