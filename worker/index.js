@@ -56,15 +56,16 @@ export default {
 
 async function queryStats(env, bundleId, envFilter) {
   // Query via Cloudflare Analytics Engine SQL API
+  // Use toDate(timestamp) for date grouping since index1 may not be typed yet
   const query = `
     SELECT
-      index1 as date,
+      toDate(timestamp) as date,
       COUNT(DISTINCT blob1) as devices
     FROM heartbeat
     WHERE blob2 = '${bundleId}'
       AND blob3 = '${envFilter}'
-    GROUP BY index1
-    ORDER BY index1 DESC
+    GROUP BY date
+    ORDER BY date DESC
     LIMIT 90
   `;
 
@@ -80,15 +81,16 @@ async function queryStats(env, bundleId, envFilter) {
     }
   );
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`API error: ${response.status} ${text}`);
-  }
-
   const result = await response.json();
 
+  // Handle API errors or empty data gracefully
+  if (!response.ok || result.errors?.length > 0) {
+    console.log('Analytics query failed:', JSON.stringify(result));
+    return []; // Return empty, show "no data yet"
+  }
+
   // Transform response: {data: [[date, count], ...]} → [{date, devices}, ...]
-  if (result.data) {
+  if (result.data && result.data.length > 0) {
     return result.data.map(row => ({
       date: row[0],
       devices: row[1],
