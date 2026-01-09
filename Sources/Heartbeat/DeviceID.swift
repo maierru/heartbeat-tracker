@@ -12,7 +12,8 @@ enum DeviceID {
     static var hashed: String {
         let raw = rawID
         let hash = SHA256.hash(data: Data(raw.utf8))
-        return hash.compactMap { String(format: "%02x", $0) }.joined().prefix(16).lowercased()
+        let full = hash.compactMap { String(format: "%02x", $0) }.joined()
+        return String(full.prefix(16))
     }
 
     /// Raw UUID stored in Keychain
