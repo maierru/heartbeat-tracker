@@ -47,12 +47,52 @@ export default {
 
     // Home page
     if (path === '/') {
-      return new Response(renderHomePage(), { status: 200, headers });
+      const apps = await queryApps(env);
+      return new Response(renderHomePage(apps), { status: 200, headers });
     }
 
     return new Response('not found', { status: 404, headers });
   },
 };
+
+async function queryApps(env) {
+  const query = `
+    SELECT
+      blob2 as app,
+      COUNT(DISTINCT blob1) as devices
+    FROM heartbeat
+    GROUP BY app
+    ORDER BY devices DESC
+    LIMIT 50
+  `;
+
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.CF_API_TOKEN}`,
+        'Content-Type': 'text/plain',
+      },
+      body: query,
+    }
+  );
+
+  const result = await response.json();
+  if (!response.ok || result.errors?.length > 0) {
+    return [];
+  }
+
+  if (result.data && result.data.length > 0) {
+    return result.data.map(row => {
+      if (Array.isArray(row)) {
+        return { app: row[0], devices: row[1] };
+      }
+      return { app: row.app, devices: parseInt(row.devices || 0, 10) };
+    });
+  }
+  return [];
+}
 
 async function queryStats(env, bundleId, envFilter) {
   // Query via Cloudflare Analytics Engine SQL API
@@ -107,7 +147,11 @@ async function queryStats(env, bundleId, envFilter) {
   return [];
 }
 
-function renderHomePage() {
+function renderHomePage(apps) {
+  const appsList = apps.length > 0
+    ? apps.map(a => `<li><a href="/${a.app}">${a.app}</a> <span class="device-count">${a.devices} devices</span></li>`).join('')
+    : '<li class="empty">No apps tracked yet</li>';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -123,8 +167,12 @@ function renderHomePage() {
     <pre><code>import Heartbeat
 
 Heartbeat.ping()</code></pre>
-    <p>View stats at: <code>heartbeat.work/{your.bundle.id}</code></p>
     <p><a href="https://github.com/maierru/heartbeat-tracker">GitHub</a></p>
+
+    <h2>Tracked Apps</h2>
+    <ul class="apps-list">
+      ${appsList}
+    </ul>
   </div>
 </body>
 </html>`;
@@ -263,5 +311,10 @@ function getStyles() {
       padding: 2rem !important;
     }
     .footer { margin-top: 2rem; font-size: 0.85rem; }
+    h2 { font-size: 1.1rem; margin-top: 2rem; margin-bottom: 0.5rem; color: #888; }
+    .apps-list { list-style: none; }
+    .apps-list li { padding: 0.5rem 0; border-bottom: 1px solid #222; }
+    .apps-list li a { font-family: 'SF Mono', Menlo, monospace; }
+    .device-count { color: #666; font-size: 0.85rem; margin-left: 0.5rem; }
   `;
 }
