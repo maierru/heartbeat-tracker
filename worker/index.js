@@ -30,7 +30,8 @@ export default {
     }
 
     // Stats page: /{bundle_id}
-    if (path.length > 1 && !path.includes('.')) {
+    // Bundle IDs have dots (com.example.app) - only exclude file extensions
+    if (path.length > 1 && !path.match(/\.\w{2,4}$/)) {
       const bundleId = path.slice(1);
       const envFilter = url.searchParams.get('env') || 'prod';
 
