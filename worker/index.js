@@ -63,6 +63,7 @@ async function queryApps(env) {
       COUNT(DISTINCT blob1) as devices
     FROM heartbeat
     WHERE toDate(timestamp) = '${today}'
+      AND blob3 = 'prod'
     GROUP BY app
     ORDER BY devices DESC
     LIMIT 50
