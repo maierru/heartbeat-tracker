@@ -1,0 +1,11 @@
+{
+  "name": "heartbeat",
+  "main": "index.js",
+  "compatibility_date": "2026-01-09",
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS",
+      "dataset": "heartbeat"
+    }
+  ]
+}
