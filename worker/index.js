@@ -56,11 +56,13 @@ export default {
 };
 
 async function queryApps(env) {
+  const today = new Date().toISOString().slice(0, 10);
   const query = `
     SELECT
       blob2 as app,
       COUNT(DISTINCT blob1) as devices
     FROM heartbeat
+    WHERE toDate(timestamp) = '${today}'
     GROUP BY app
     ORDER BY devices DESC
     LIMIT 50
@@ -148,9 +150,15 @@ async function queryStats(env, bundleId, envFilter) {
 }
 
 function renderHomePage(apps) {
+  const today = new Date().toISOString().slice(0, 10);
+  const medals = ['🥇', '🥈', '🥉'];
+
   const appsList = apps.length > 0
-    ? apps.map(a => `<li><a href="/${a.app}">${a.app}</a> <span class="device-count">${a.devices} devices</span></li>`).join('')
-    : '<li class="empty">No apps tracked yet</li>';
+    ? apps.map((a, i) => {
+        const rank = i < 3 ? medals[i] : `${i + 1}.`;
+        return `<li><span class="rank">${rank}</span> <a href="/${a.app}">${a.app}</a> <span class="device-count">${a.devices}</span></li>`;
+      }).join('')
+    : '<li class="empty">No activity today yet</li>';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -169,7 +177,7 @@ function renderHomePage(apps) {
 Heartbeat.ping()</code></pre>
     <p><a href="https://github.com/maierru/heartbeat-tracker">GitHub</a></p>
 
-    <h2>Tracked Apps</h2>
+    <h2>Leaderboard <span class="date-badge">${today}</span></h2>
     <ul class="apps-list">
       ${appsList}
     </ul>
@@ -311,10 +319,12 @@ function getStyles() {
       padding: 2rem !important;
     }
     .footer { margin-top: 2rem; font-size: 0.85rem; }
-    h2 { font-size: 1.1rem; margin-top: 2rem; margin-bottom: 0.5rem; color: #888; }
+    h2 { font-size: 1.1rem; margin-top: 2rem; margin-bottom: 0.5rem; color: #888; display: flex; align-items: center; gap: 0.5rem; }
+    .date-badge { font-size: 0.75rem; background: #222; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: normal; }
     .apps-list { list-style: none; }
-    .apps-list li { padding: 0.5rem 0; border-bottom: 1px solid #222; }
-    .apps-list li a { font-family: 'SF Mono', Menlo, monospace; }
-    .device-count { color: #666; font-size: 0.85rem; margin-left: 0.5rem; }
+    .apps-list li { padding: 0.75rem 0; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 0.5rem; }
+    .apps-list li a { font-family: 'SF Mono', Menlo, monospace; flex: 1; }
+    .rank { width: 2rem; text-align: center; }
+    .device-count { color: #3b82f6; font-weight: 600; font-variant-numeric: tabular-nums; }
   `;
 }
