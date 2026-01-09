@@ -54,6 +54,7 @@ export default {
 };
 
 async function queryStats(env, bundleId, envFilter) {
+  // Query via Cloudflare Analytics Engine SQL API
   const query = `
     SELECT
       index1 as date,
@@ -61,14 +62,39 @@ async function queryStats(env, bundleId, envFilter) {
     FROM heartbeat
     WHERE blob2 = '${bundleId}'
       AND blob3 = '${envFilter}'
-      AND timestamp > NOW() - INTERVAL '90' DAY
     GROUP BY index1
     ORDER BY index1 DESC
     LIMIT 90
   `;
 
-  const response = await env.ANALYTICS.query(query);
-  return response.data || [];
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.CF_API_TOKEN}`,
+        'Content-Type': 'text/plain',
+      },
+      body: query,
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`API error: ${response.status} ${text}`);
+  }
+
+  const result = await response.json();
+
+  // Transform response: {data: [[date, count], ...]} → [{date, devices}, ...]
+  if (result.data) {
+    return result.data.map(row => ({
+      date: row[0],
+      devices: row[1],
+    }));
+  }
+
+  return [];
 }
 
 function renderHomePage() {
@@ -97,7 +123,7 @@ Heartbeat.ping()</code></pre>
 function renderStatsPage(bundleId, envFilter, stats) {
   const maxDevices = Math.max(...stats.map(s => s.devices), 1);
 
-  const rows = stats.map(row => {
+  const rows = stats.length > 0 ? stats.map(row => {
     const barWidth = Math.round((row.devices / maxDevices) * 100);
     return `
       <tr>
@@ -107,7 +133,7 @@ function renderStatsPage(bundleId, envFilter, stats) {
           <span class="count">${row.devices}</span>
         </td>
       </tr>`;
-  }).join('');
+  }).join('') : '<tr><td colspan="2" class="empty">No data yet. Integrate the library and ping will appear here.</td></tr>';
 
   const total = stats.reduce((sum, r) => sum + r.devices, 0);
   const avg = stats.length ? Math.round(total / stats.length) : 0;
@@ -139,7 +165,7 @@ function renderStatsPage(bundleId, envFilter, stats) {
         </tr>
       </thead>
       <tbody>
-        ${rows || '<tr><td colspan="2">No data yet</td></tr>'}
+        ${rows}
       </tbody>
     </table>
     <p class="footer"><a href="/">heartbeat.work</a></p>
@@ -220,6 +246,11 @@ function getStyles() {
     .count {
       position: relative;
       font-variant-numeric: tabular-nums;
+    }
+    .empty {
+      color: #666;
+      text-align: center;
+      padding: 2rem !important;
     }
     .footer { margin-top: 2rem; font-size: 0.85rem; }
   `;

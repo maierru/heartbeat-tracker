@@ -16,13 +16,19 @@ Cloudflare Worker backend for heartbeat.work
    - Delete default code, paste contents of `index.js`
    - Click "Deploy"
 
-4. Add Analytics Engine:
+4. Add Analytics Engine binding:
    - Go to Worker → Settings → Bindings
    - Add binding → Analytics Engine
    - Variable name: `ANALYTICS`
    - Dataset: `heartbeat` (create new)
 
-5. Add custom domain:
+5. Add secrets (for reading stats):
+   - Go to Worker → Settings → Variables and Secrets
+   - Add secret `CF_ACCOUNT_ID` → your account ID (from URL: dash.cloudflare.com/{account_id})
+   - Add secret `CF_API_TOKEN` → create token at https://dash.cloudflare.com/profile/api-tokens
+     - Permissions: Account Analytics:Read
+
+6. Add custom domain:
    - Go to Worker → Settings → Domains & Routes
    - Add `heartbeat.work`
 
