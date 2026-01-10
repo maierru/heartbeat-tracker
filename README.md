@@ -44,6 +44,8 @@ struct MyApp: App {
 </array>
 ```
 
+Skip this step → warning in debug console shows what's missing.
+
 ### 4. View your stats
 
 ```
