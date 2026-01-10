@@ -11,7 +11,50 @@ public enum Heartbeat {
     /// Start tracking with background refresh. Call once in App init.
     public static func start() {
         ping()
+        checkBackgroundConfiguration()
         registerBackgroundRefresh()
+    }
+
+    // MARK: - Configuration Check
+
+    private static func checkBackgroundConfiguration() {
+        #if DEBUG
+        var issues: [String] = []
+
+        // Check BGTaskSchedulerPermittedIdentifiers
+        let permittedIds = Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String] ?? []
+        if !permittedIds.contains(taskIdentifier) {
+            issues.append("Missing '\(taskIdentifier)' in BGTaskSchedulerPermittedIdentifiers")
+        }
+
+        // Check UIBackgroundModes
+        let bgModes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
+        if !bgModes.contains("fetch") {
+            issues.append("Missing 'fetch' in UIBackgroundModes")
+        }
+
+        if !issues.isEmpty {
+            print("""
+            ⚠️ [Heartbeat] Background refresh not configured!
+
+            Issues:
+            \(issues.map { "  • \($0)" }.joined(separator: "\n"))
+
+            Add to Info.plist:
+            <key>BGTaskSchedulerPermittedIdentifiers</key>
+            <array>
+                <string>work.heartbeat.refresh</string>
+            </array>
+            <key>UIBackgroundModes</key>
+            <array>
+                <string>fetch</string>
+            </array>
+
+            Without this, Heartbeat only tracks when app is opened.
+            Docs: https://github.com/maierru/heartbeat-tracker
+            """)
+        }
+        #endif
     }
 
     /// Send ping (max 1 per day). Called automatically by start().
