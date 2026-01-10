@@ -38,10 +38,13 @@ export default {
       const envFilter = url.searchParams.get('env') || 'prod';
 
       try {
-        const [stats, versions] = await Promise.all([
-          queryStats(env, bundleId, envFilter),
-          queryVersions(env, bundleId, envFilter)
-        ]);
+        const stats = await queryStats(env, bundleId, envFilter);
+        let versions = [];
+        try {
+          versions = await queryVersions(env, bundleId, envFilter);
+        } catch (e) {
+          // Version data may not exist for older pings
+        }
         const html = renderStatsPage(bundleId, envFilter, stats, versions);
         return new Response(html, { status: 200, headers });
       } catch (e) {
@@ -126,7 +129,13 @@ async function queryVersions(env, bundleId, envFilter) {
     }
   );
 
-  const result = await response.json();
+  let result;
+  try {
+    result = await response.json();
+  } catch (e) {
+    return [];
+  }
+
   if (!response.ok || result.errors?.length > 0) {
     return [];
   }
@@ -137,7 +146,7 @@ async function queryVersions(env, bundleId, envFilter) {
         return { version: row[0] || '?', devices: row[1] };
       }
       return { version: row.version || '?', devices: parseInt(row.devices || 0, 10) };
-    });
+    }).filter(v => v.version && v.version !== '?');
   }
   return [];
 }
