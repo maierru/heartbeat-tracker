@@ -1,6 +1,6 @@
 # Heartbeat
 
-Track daily active users with background refresh. 2 minutes to set up.
+Track daily active users. 1 minute setup.
 
 ## Setup
 
@@ -11,18 +11,16 @@ File → Add Package Dependencies → paste:
 https://github.com/maierru/heartbeat-tracker.git
 ```
 
-### 2. Update your App.swift
+### 2. Add to your App.swift
 
 ```swift
 import SwiftUI
-import BackgroundTasks
 import Heartbeat
 
 @main
 struct MyApp: App {
     init() {
-        Heartbeat.ping()
-        registerBackgroundRefresh()
+        Heartbeat.start()
     }
 
     var body: some Scene {
@@ -30,24 +28,6 @@ struct MyApp: App {
             ContentView()
         }
     }
-
-    private func registerBackgroundRefresh() {
-        BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: "work.heartbeat",
-            using: nil
-        ) { task in
-            Heartbeat.ping()
-            task.setTaskCompleted(success: true)
-            scheduleNextRefresh()
-        }
-        scheduleNextRefresh()
-    }
-}
-
-private func scheduleNextRefresh() {
-    let request = BGAppRefreshTaskRequest(identifier: "work.heartbeat")
-    request.earliestBeginDate = Date(timeIntervalSinceNow: 4 * 60 * 60)
-    try? BGTaskScheduler.shared.submit(request)
 }
 ```
 
@@ -56,15 +36,13 @@ private func scheduleNextRefresh() {
 ```xml
 <key>BGTaskSchedulerPermittedIdentifiers</key>
 <array>
-    <string>work.heartbeat</string>
+    <string>work.heartbeat.refresh</string>
 </array>
 <key>UIBackgroundModes</key>
 <array>
     <string>fetch</string>
 </array>
 ```
-
-Or in Xcode: Target → Signing & Capabilities → + Background Modes → check "Background fetch"
 
 ### 4. View your stats
 
