@@ -1,9 +1,11 @@
 import Foundation
 import BackgroundTasks
+import os.log
 
 /// Zero-config daily active device tracking.
 /// View stats at: https://heartbeat.work/{your.bundle.id}
 public enum Heartbeat {
+    private static let log = OSLog(subsystem: "work.heartbeat", category: "config")
     private static let endpoint = "https://heartbeat.work/p"
     private static let lastPingKey = "work.heartbeat.lastPing"
     private static let taskIdentifier = "work.heartbeat.refresh"
@@ -34,25 +36,13 @@ public enum Heartbeat {
         }
 
         if !issues.isEmpty {
-            print("""
-            ⚠️ [Heartbeat] Background refresh not configured!
-
-            Issues:
-            \(issues.map { "  • \($0)" }.joined(separator: "\n"))
-
-            Add to Info.plist:
-            <key>BGTaskSchedulerPermittedIdentifiers</key>
-            <array>
-                <string>work.heartbeat.refresh</string>
-            </array>
-            <key>UIBackgroundModes</key>
-            <array>
-                <string>fetch</string>
-            </array>
-
-            Without this, Heartbeat only tracks when app is opened.
+            let message = """
+            Background refresh not configured!
+            Issues: \(issues.joined(separator: ", "))
+            Add BGTaskSchedulerPermittedIdentifiers with 'work.heartbeat.refresh' and UIBackgroundModes with 'fetch' to Info.plist.
             Docs: https://github.com/maierru/heartbeat-tracker
-            """)
+            """
+            os_log(.fault, log: log, "⚠️ %{public}@", message)
         }
         #endif
     }
