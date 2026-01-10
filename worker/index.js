@@ -9,11 +9,12 @@ export default {
       'Content-Type': 'text/html; charset=utf-8',
     };
 
-    // Ping endpoint: /p?a={app}&d={device}&e={env}
+    // Ping endpoint: /p?a={app}&d={device}&e={env}&v={version}
     if (path === '/p') {
       const app = url.searchParams.get('a');
       const device = url.searchParams.get('d');
       const env_type = url.searchParams.get('e') || 'prod';
+      const version = url.searchParams.get('v') || '?';
 
       if (!app || !device) {
         return new Response('missing params', { status: 400, headers });
@@ -23,7 +24,7 @@ export default {
 
       env.ANALYTICS.writeDataPoint({
         indexes: [date],
-        blobs: [device, app, env_type],
+        blobs: [device, app, env_type, version],
       });
 
       return new Response('ok', { status: 200, headers });
@@ -37,8 +38,11 @@ export default {
       const envFilter = url.searchParams.get('env') || 'prod';
 
       try {
-        const stats = await queryStats(env, bundleId, envFilter);
-        const html = renderStatsPage(bundleId, envFilter, stats);
+        const [stats, versions] = await Promise.all([
+          queryStats(env, bundleId, envFilter),
+          queryVersions(env, bundleId, envFilter)
+        ]);
+        const html = renderStatsPage(bundleId, envFilter, stats, versions);
         return new Response(html, { status: 200, headers });
       } catch (e) {
         return new Response(`Error: ${e.message}`, { status: 500, headers });
@@ -92,6 +96,47 @@ async function queryApps(env) {
         return { app: row[0], devices: row[1] };
       }
       return { app: row.app, devices: parseInt(row.devices || 0, 10) };
+    });
+  }
+  return [];
+}
+
+async function queryVersions(env, bundleId, envFilter) {
+  const query = `
+    SELECT
+      blob4 as version,
+      COUNT(DISTINCT blob1) as devices
+    FROM heartbeat
+    WHERE blob2 = '${bundleId}'
+      AND blob3 = '${envFilter}'
+    GROUP BY version
+    ORDER BY devices DESC
+    LIMIT 10
+  `;
+
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.CF_API_TOKEN}`,
+        'Content-Type': 'text/plain',
+      },
+      body: query,
+    }
+  );
+
+  const result = await response.json();
+  if (!response.ok || result.errors?.length > 0) {
+    return [];
+  }
+
+  if (result.data && result.data.length > 0) {
+    return result.data.map(row => {
+      if (Array.isArray(row)) {
+        return { version: row[0] || '?', devices: row[1] };
+      }
+      return { version: row.version || '?', devices: parseInt(row.devices || 0, 10) };
     });
   }
   return [];
@@ -187,7 +232,7 @@ Heartbeat.ping()</code></pre>
 </html>`;
 }
 
-function renderStatsPage(bundleId, envFilter, stats) {
+function renderStatsPage(bundleId, envFilter, stats, versions = []) {
   const maxDevices = Math.max(...stats.map(s => s.devices), 1);
 
   const rows = stats.length > 0 ? stats.map(row => {
@@ -204,6 +249,10 @@ function renderStatsPage(bundleId, envFilter, stats) {
 
   const total = stats.reduce((sum, r) => sum + r.devices, 0);
   const avg = stats.length ? Math.round(total / stats.length) : 0;
+
+  const versionList = versions.length > 0
+    ? versions.map(v => `<span class="version-tag">${v.version} <small>(${v.devices})</small></span>`).join(' ')
+    : '<span class="empty">No version data</span>';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -223,6 +272,9 @@ function renderStatsPage(bundleId, envFilter, stats) {
     <div class="summary">
       <span>Avg: <strong>${avg}</strong>/day</span>
       <span>Days: <strong>${stats.length}</strong></span>
+    </div>
+    <div class="versions">
+      <span class="label">Versions:</span> ${versionList}
     </div>
     <table>
       <thead>
@@ -327,5 +379,9 @@ function getStyles() {
     .apps-list li a { font-family: 'SF Mono', Menlo, monospace; flex: 1; }
     .rank { width: 2rem; text-align: center; }
     .device-count { color: #3b82f6; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .versions { margin-bottom: 1rem; color: #888; }
+    .versions .label { margin-right: 0.5rem; }
+    .version-tag { background: #1a1a1a; padding: 0.2rem 0.5rem; border-radius: 4px; margin-right: 0.5rem; font-family: 'SF Mono', Menlo, monospace; font-size: 0.85rem; }
+    .version-tag small { color: #666; }
   `;
 }

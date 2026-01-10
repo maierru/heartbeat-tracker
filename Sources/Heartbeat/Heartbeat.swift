@@ -8,8 +8,7 @@ public enum Heartbeat {
 
     /// Call once on app launch. Automatically sends max 1 ping per day.
     public static func ping() {
-        // Defer slightly to ensure network is ready
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.global(qos: .utility).async {
             performPing()
         }
     }
@@ -20,12 +19,14 @@ public enum Heartbeat {
 
         let device = DeviceID.hashed
         let env = currentEnvironment
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
 
         var components = URLComponents(string: endpoint)!
         components.queryItems = [
             URLQueryItem(name: "a", value: bundleId),
             URLQueryItem(name: "d", value: device),
-            URLQueryItem(name: "e", value: env)
+            URLQueryItem(name: "e", value: env),
+            URLQueryItem(name: "v", value: version)
         ]
 
         guard let url = components.url else { return }
