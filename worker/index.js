@@ -226,11 +226,17 @@ function renderHomePage(apps) {
 <body>
   <div class="container">
     <h1>Heartbeat</h1>
-    <p>Zero-config device tracking for iOS apps.</p>
+    <p class="tagline">Know how many devices have your app installed.<br>Works in background. 1 minute setup.</p>
     <pre><code>import Heartbeat
 
-Heartbeat.ping()</code></pre>
-    <p><a href="https://github.com/maierru/heartbeat-tracker">GitHub</a></p>
+Heartbeat.start()</code></pre>
+    <ul class="features">
+      <li>Daily unique devices (background refresh - no app open required)</li>
+      <li>Version breakdown</li>
+      <li>Public dashboard at heartbeat.work/{bundle.id}</li>
+    </ul>
+    <p class="cta">No account. No SDK config. Just add and ship.</p>
+    <p><a href="https://github.com/maierru/heartbeat-tracker">GitHub →</a></p>
 
     <h2>Leaderboard <span class="date-badge">${today}</span></h2>
     <ul class="apps-list">
@@ -320,6 +326,10 @@ function getStyles() {
       word-break: break-all;
     }
     p { margin: 0.5rem 0; color: #888; }
+    .tagline { font-size: 1.1rem; color: #e5e5e5; line-height: 1.5; }
+    .features { list-style: disc; margin: 1rem 0 1rem 1.5rem; color: #888; }
+    .features li { padding: 0.25rem 0; }
+    .cta { color: #3b82f6; font-weight: 500; margin: 1rem 0; }
     a { color: #3b82f6; text-decoration: none; }
     a:hover { text-decoration: underline; }
     pre {

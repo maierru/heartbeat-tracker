@@ -1,6 +1,7 @@
 # Heartbeat
 
-Track daily active users. 1 minute setup.
+Know how many devices have your app installed.
+Works in background. 1 minute setup.
 
 ## Setup
 
