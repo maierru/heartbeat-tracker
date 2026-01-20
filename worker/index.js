@@ -107,12 +107,12 @@ async function queryApps(env) {
 async function queryVersions(env, bundleId, envFilter) {
   const query = `
     SELECT
-      blob4 as version,
+      blob4 as app_version,
       COUNT(DISTINCT blob1) as devices
     FROM heartbeat
     WHERE blob2 = '${bundleId}'
       AND blob3 = '${envFilter}'
-    GROUP BY version
+    GROUP BY app_version
     ORDER BY devices DESC
     LIMIT 10
   `;
@@ -145,7 +145,7 @@ async function queryVersions(env, bundleId, envFilter) {
       if (Array.isArray(row)) {
         return { version: row[0] || '?', devices: row[1] };
       }
-      return { version: row.version || '?', devices: parseInt(row.devices || 0, 10) };
+      return { version: row.app_version || '?', devices: parseInt(row.devices || 0, 10) };
     }).filter(v => v.version && v.version !== '?');
   }
   return [];
