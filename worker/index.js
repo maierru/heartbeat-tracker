@@ -36,16 +36,17 @@ export default {
     if (path.length > 1 && !staticExt.test(path)) {
       const bundleId = path.slice(1);
       const envFilter = url.searchParams.get('env') || 'prod';
+      const versionFilter = url.searchParams.get('version') || null;
 
       try {
-        const stats = await queryStats(env, bundleId, envFilter);
+        const stats = await queryStats(env, bundleId, envFilter, versionFilter);
         let versions = [];
         try {
           versions = await queryVersions(env, bundleId, envFilter);
         } catch (e) {
           // Version data may not exist for older pings
         }
-        const html = renderStatsPage(bundleId, envFilter, stats, versions);
+        const html = renderStatsPage(bundleId, envFilter, versionFilter, stats, versions);
         return new Response(html, { status: 200, headers });
       } catch (e) {
         return new Response(`Error: ${e.message}`, { status: 500, headers });
@@ -151,9 +152,10 @@ async function queryVersions(env, bundleId, envFilter) {
   return [];
 }
 
-async function queryStats(env, bundleId, envFilter) {
+async function queryStats(env, bundleId, envFilter, versionFilter = null) {
   // Query via Cloudflare Analytics Engine SQL API
   // Use toDate(timestamp) for date grouping since index1 may not be typed yet
+  const versionClause = versionFilter ? `AND blob4 = '${versionFilter}'` : '';
   const query = `
     SELECT
       toDate(timestamp) as date,
@@ -161,6 +163,7 @@ async function queryStats(env, bundleId, envFilter) {
     FROM heartbeat
     WHERE blob2 = '${bundleId}'
       AND blob3 = '${envFilter}'
+      ${versionClause}
     GROUP BY date
     ORDER BY date DESC
     LIMIT 90
@@ -247,7 +250,7 @@ Heartbeat.start()</code></pre>
 </html>`;
 }
 
-function renderStatsPage(bundleId, envFilter, stats, versions = []) {
+function renderStatsPage(bundleId, envFilter, versionFilter, stats, versions = []) {
   const maxDevices = Math.max(...stats.map(s => s.devices), 1);
 
   const rows = stats.length > 0 ? stats.map(row => {
@@ -265,8 +268,14 @@ function renderStatsPage(bundleId, envFilter, stats, versions = []) {
   const total = stats.reduce((sum, r) => sum + r.devices, 0);
   const avg = stats.length ? Math.round(total / stats.length) : 0;
 
+  const allActiveClass = !versionFilter ? ' active' : '';
   const versionList = versions.length > 0
-    ? versions.map(v => `<span class="version-tag">${v.version} <small>(${v.devices})</small></span>`).join(' ')
+    ? `<a href="?env=${envFilter}" class="version-tag${allActiveClass}">All</a> ` +
+      versions.map(v => {
+        const isActive = versionFilter === v.version;
+        const activeClass = isActive ? ' active' : '';
+        return `<a href="?env=${envFilter}&version=${v.version}" class="version-tag${activeClass}">${v.version} <small>(${v.devices})</small></a>`;
+      }).join(' ')
     : '<span class="empty">No version data</span>';
 
   return `<!DOCTYPE html>
@@ -400,7 +409,10 @@ function getStyles() {
     .device-count { color: #3b82f6; font-weight: 600; font-variant-numeric: tabular-nums; }
     .versions { margin-bottom: 1rem; color: #888; }
     .versions .label { margin-right: 0.5rem; }
-    .version-tag { background: #1a1a1a; padding: 0.2rem 0.5rem; border-radius: 4px; margin-right: 0.5rem; font-family: 'SF Mono', Menlo, monospace; font-size: 0.85rem; }
+    .version-tag { background: #1a1a1a; padding: 0.2rem 0.5rem; border-radius: 4px; margin-right: 0.5rem; font-family: 'SF Mono', Menlo, monospace; font-size: 0.85rem; color: #888; text-decoration: none; display: inline-block; }
+    .version-tag:hover { background: #222; }
+    .version-tag.active { background: #3b82f6; color: #fff; }
+    .version-tag.active small { color: #e5e5e5; }
     .version-tag small { color: #666; }
   `;
 }
