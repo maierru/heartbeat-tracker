@@ -20,5 +20,9 @@ let package = Package(
             name: "Heartbeat",
             dependencies: []
         ),
+        .testTarget(
+            name: "HeartbeatTests",
+            dependencies: ["Heartbeat"]
+        ),
     ]
 )

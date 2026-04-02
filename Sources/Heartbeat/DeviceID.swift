@@ -48,6 +48,14 @@ enum DeviceID {
         return string
     }
 
+    // ThisDeviceOnly uses hardware encryption key — may silently fail on macOS
+    // (errSecInteractionNotAllowed) before first unlock; use plain AfterFirstUnlock there
+    #if os(macOS)
+    private static let accessibility = kSecAttrAccessibleAfterFirstUnlock
+    #else
+    private static let accessibility = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+    #endif
+
     private static func save(_ value: String) {
         let data = Data(value.utf8)
 
@@ -65,7 +73,7 @@ enum DeviceID {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            kSecAttrAccessible as String: accessibility
         ]
         SecItemAdd(addQuery as CFDictionary, nil)
     }
